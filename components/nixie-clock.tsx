@@ -6,8 +6,28 @@ const INITIAL_DIGITS = 3;
 const MAX_DIGITS = 8;
 const SCORE_PER_MATCH = 100;
 
+// Props の型定義
+interface NixieDigitProps {
+  value: string;
+  targetValue: string;
+  isTarget?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+}
+
+// Game Mode Props の型定義
+interface GameModeProps {
+  onReturnToClock: () => void;
+}
+
 // Shared NixieDigit component
-const NixieDigit = ({ value, targetValue, isTarget = false, onClick, disabled = false }) => {
+const NixieDigit: React.FC<NixieDigitProps> = ({ 
+  value, 
+  targetValue, 
+  isTarget = false, 
+  onClick, 
+  disabled = false 
+}) => {
   const isMatch = value === targetValue;
   // colorClass の判定を修正
   const colorClass = isTarget ? 'target' : 'normal';  // 'match' の条件を削除
@@ -23,7 +43,7 @@ const NixieDigit = ({ value, targetValue, isTarget = false, onClick, disabled = 
   );
 };
 
-const GameMode = ({ onReturnToClock, currentTime }) => {
+const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
   const [gameState, setGameState] = useState('ready');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
@@ -139,7 +159,7 @@ const GameMode = ({ onReturnToClock, currentTime }) => {
 };
 
 // Main Component
-const NixieClockGame = () => {
+const NixieClockGame: React.FC = () => {
   const [mode, setMode] = useState('clock');
   const [time, setTime] = useState('00000000');
 
