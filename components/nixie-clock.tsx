@@ -1,58 +1,217 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 
-const NixieDigit = ({ value }: { value: string }) => (
-  <div className="nixie-digit">
-    {['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-      <span key={num} className={`digit ${num === value ? 'active' : ''}`}>
-        {num}
-      </span>
-    ))}
-  </div>
-)
+const GAME_DURATION = 60; // seconds
+const INITIAL_DIGITS = 3;
+const MAX_DIGITS = 8;
+const SCORE_PER_MATCH = 100;
 
-export default function NixieClock() {
-  const [time, setTime] = useState('01450213')
+// Shared NixieDigit component
+const NixieDigit = ({ value, targetValue, isTarget = false, onClick, disabled = false }) => {
+  const isMatch = value === targetValue;
+  // colorClass の判定を修正
+  const colorClass = isTarget ? 'target' : 'normal';  // 'match' の条件を削除
+  
+  return (
+    <div className={`nixie-digit ${disabled ? 'disabled' : ''}`} onClick={!disabled && !isTarget ? onClick : undefined}>
+      {['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+        <span key={num} className={`digit ${num === value ? 'active' : ''} ${colorClass}`}>
+          {num}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const GameMode = ({ onReturnToClock, currentTime }) => {
+  const [gameState, setGameState] = useState('ready');
+  const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
+  const [currentDigits, setCurrentDigits] = useState(Array(MAX_DIGITS).fill('0'));
+  const [targetDigits, setTargetDigits] = useState(Array(MAX_DIGITS).fill('0'));
+  const [activeDigits, setActiveDigits] = useState(INITIAL_DIGITS);
+  const [combo, setCombo] = useState(0);
+
+  const generateTarget = useCallback(() => {
+    return Array(MAX_DIGITS).fill(0).map((_, i) => 
+      i < activeDigits ? Math.floor(Math.random() * 10).toString() : '0'
+    );
+  }, [activeDigits]);
+
+  const startGame = () => {
+    setGameState('playing');
+    setScore(0);
+    setTimeLeft(GAME_DURATION);
+    setCurrentDigits(Array(MAX_DIGITS).fill('0'));
+    setActiveDigits(INITIAL_DIGITS);
+    setCombo(0);
+    setTargetDigits(generateTarget());
+  };
+
+  const handleDigitClick = (index) => {
+    if (gameState !== 'playing') return;
+    
+    const newDigits = [...currentDigits];
+    newDigits[index] = ((parseInt(currentDigits[index]) + 1) % 10).toString();
+    setCurrentDigits(newDigits);
+
+    const allMatch = targetDigits
+      .slice(0, activeDigits)
+      .every((digit, i) => digit === newDigits[i]);
+
+    if (allMatch) {
+      const timeBonus = Math.floor(timeLeft / GAME_DURATION * 50);
+      const comboBonus = Math.floor(combo * 20);
+      setScore(prev => prev + SCORE_PER_MATCH + timeBonus + comboBonus);
+      setCombo(prev => prev + 1);
+
+      if (score > 1000 && activeDigits < MAX_DIGITS) {
+        setActiveDigits(prev => Math.min(prev + 1, MAX_DIGITS));
+      }
+
+      setTargetDigits(generateTarget());
+    }
+  };
+
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 0) {
+          setGameState('ended');
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [gameState]);
+
+  return (
+    <div className="game-container">
+      <div className="game-info">
+        <div className="time-score">
+          <div>Time: {timeLeft}s</div>
+          <div>Score: {score}</div>
+          <div>Combo: {combo}x</div>
+        </div>
+        {gameState === 'ready' && (
+          <button className="start-button" onClick={startGame}>Start Game</button>
+        )}
+        {gameState === 'ended' && (
+          <div className="game-over">
+            <div className="final-score">Final Score: {score}</div>
+            <button className="start-button" onClick={startGame}>Play Again</button>
+            <button className="return-button" onClick={onReturnToClock}>Return to Clock</button>
+          </div>
+        )}
+      </div>
+      
+      <div className="nixie-displays">
+        <div className="nixie-row target-row">
+          {targetDigits.map((digit, index) => (
+            <NixieDigit 
+              key={`target-${index}`}
+              value={digit}
+              targetValue={digit}
+              isTarget={true}
+              disabled={true}
+            />
+          ))}
+        </div>
+        <div className="nixie-row">
+          {currentDigits.map((digit, index) => (
+            <NixieDigit
+              key={`current-${index}`}
+              value={digit}
+              targetValue={targetDigits[index]}
+              onClick={() => handleDigitClick(index)}
+              disabled={index >= activeDigits || gameState !== 'playing'}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main Component
+const NixieClockGame = () => {
+  const [mode, setMode] = useState('clock');
+  const [time, setTime] = useState('00000000');
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = new Date()
-      const hours = now.getHours().toString().padStart(2, '0')
-      const minutes = now.getMinutes().toString().padStart(2, '0')
-      const seconds = now.getSeconds().toString().padStart(2, '0')
-      const milliseconds = now.getMilliseconds().toString().padStart(3, '0').slice(0, 2)
-      setTime(`${hours}${minutes}${seconds}${milliseconds}`)
-    }, 10)
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, '0');
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const seconds = now.getSeconds().toString().padStart(2, '0');
+      const milliseconds = now.getMilliseconds().toString().padStart(3, '0').slice(0, 2);
+      setTime(`${hours}${minutes}${seconds}${milliseconds}`);
+    }, 10);
 
-    return () => clearInterval(timer)
-  }, [])
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <div className="nixie-clock-container">
-      <div className="nixie-clock">
-        {time.split('').map((digit, index) => (
-          <NixieDigit key={index} value={digit} />
-        ))}
-      </div>
+    <div className="main-container">
+      {mode === 'clock' ? (
+        <>
+          <div className="nixie-displays">
+            <div className="nixie-row">
+              {time.split('').map((digit, index) => (
+                <NixieDigit 
+                  key={index} 
+                  value={digit} 
+                  targetValue={digit}
+                  isTarget={false}
+                  disabled={false}  // disabled を false に変更
+                  onClick={() => {}}  // 空の onClick を追加
+                />
+              ))}
+            </div>
+          </div>
+          <button className="start-button" onClick={() => setMode('game')}>
+            Play Nixie Game
+          </button>
+        </>
+      ) : (
+        <GameMode onReturnToClock={() => setMode('clock')} currentTime={time} />
+      )}
+      
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap');
 
-        .nixie-clock-container {
+        .main-container {
           display: flex;
+          flex-direction: column;
           justify-content: center;
           align-items: center;
           background-color: #000;
           padding: 40px;
           min-height: 100vh;
+          color: #ff6400;
         }
 
-        .nixie-clock {
+        .nixie-displays {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .nixie-row {
           display: flex;
           justify-content: center;
           align-items: center;
-          background-color: #000;
-          padding: 10px;
-          border-radius: 5px;
+          gap: 4px;
+        }
+
+        .target-row .nixie-digit {
+          transform: scale(0.8);
+          opacity: 0.8;
         }
 
         .nixie-digit {
@@ -63,6 +222,12 @@ export default function NixieClock() {
           background-color: rgba(0, 0, 0, 0.8);
           border-radius: 3px;
           overflow: hidden;
+          cursor: pointer;
+        }
+
+        .nixie-digit.disabled {
+          cursor: default;
+          opacity: 0.5;
         }
 
         .digit {
@@ -79,11 +244,25 @@ export default function NixieClock() {
 
         .digit.active {
           color: #ff6400;
-          text-shadow: 0 0 10px rgba(255, 100, 0, 0.8), 
+          text-shadow: 0 0 10px rgba(255, 100, 0, 0.8),
                        0 0 20px rgba(255, 100, 0, 0.5),
                        0 0 30px rgba(255, 100, 0, 0.3);
           z-index: 1;
           animation: flicker 0.1s infinite, fluctuate 4s infinite ease-in-out;
+        }
+
+        .digit.active.target {
+          color: #ff9900;
+          text-shadow: 0 0 10px rgba(255, 153, 0, 0.8),
+                       0 0 20px rgba(255, 153, 0, 0.5),
+                       0 0 30px rgba(255, 153, 0, 0.3);
+        }
+
+        .digit.active.match {
+          color: #00ff00;
+          text-shadow: 0 0 10px rgba(0, 255, 0, 0.8),
+                       0 0 20px rgba(0, 255, 0, 0.5),
+                       0 0 30px rgba(0, 255, 0, 0.3);
         }
 
         .nixie-digit::before {
@@ -121,6 +300,35 @@ export default function NixieClock() {
           animation: glow 2s infinite ease-in-out;
         }
 
+        .start-button, .return-button {
+          background: #ff6400;
+          color: #000;
+          border: none;
+          padding: 10px 20px;
+          font-size: 20px;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          margin: 10px;
+        }
+
+        .return-button {
+          background: #666;
+          color: #fff;
+        }
+
+        .start-button:hover, .return-button:hover {
+          transform: scale(1.05);
+        }
+
+        .start-button:hover {
+          background: #ff8533;
+        }
+
+        .return-button:hover {
+          background: #888;
+        }
+
         @keyframes flicker {
           0% { opacity: 1; }
           50% { opacity: 0.98; }
@@ -140,7 +348,23 @@ export default function NixieClock() {
           50% { opacity: 0.95; }
           100% { opacity: 1; }
         }
+
+        .game-info {
+          margin-bottom: 20px;
+          text-align: center;
+          font-family: 'Roboto', sans-serif;
+        }
+
+        .time-score {
+          font-size: 36px;  // 24px から 36px に変更
+          margin-bottom: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;  // 追加：項目間の間隔
+        }
       `}</style>
     </div>
-  )
-}
+  );
+};
+
+export default NixieClockGame;
