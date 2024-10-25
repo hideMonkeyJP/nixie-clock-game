@@ -1,10 +1,13 @@
 'use client'
 import React, { useState, useEffect, useCallback } from 'react'
 
-const GAME_DURATION = 60; // seconds
-const INITIAL_DIGITS = 3;
-const MAX_DIGITS = 8;
-const SCORE_PER_MATCH = 100;
+// Game constants
+const GAME_DURATION = 60;         // ゲーム時間（秒）
+const INITIAL_DIGITS = 1;         // 初期桁数
+const MAX_DIGITS = 8;            // 最大桁数
+const SCORE_PER_MATCH = 100;     // 基本スコア
+const DIGIT_BONUS_MULTIPLIER = 2; // 桁数ボーナス乗数
+const TIME_BONUS_MULTIPLIER = 10; // 残り時間ボーナス乗数
 
 // Props の型定義
 interface NixieDigitProps {
@@ -43,32 +46,52 @@ const NixieDigit: React.FC<NixieDigitProps> = ({
   );
 };
 
-const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
-  const [gameState, setGameState] = useState('ready');
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
-  const [currentDigits, setCurrentDigits] = useState(Array(MAX_DIGITS).fill('0'));
-  const [targetDigits, setTargetDigits] = useState(Array(MAX_DIGITS).fill('0'));
-  const [activeDigits, setActiveDigits] = useState(INITIAL_DIGITS);
-  const [combo, setCombo] = useState(0);
+interface ScoreInfo {
+  baseScore: number;
+  digitBonus: number;
+  timeBonus: number;
+  totalScore: number;
+  currentDigits: number;
+}
 
-  const generateTarget = useCallback(() => {
-    return Array(MAX_DIGITS).fill(0).map((_, i) => 
+const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
+  const [gameState, setGameState] = useState<'ready' | 'playing' | 'ended' | 'clear'>('ready');
+  const [score, setScore] = useState<number>(0);
+  const [timeLeft, setTimeLeft] = useState<number>(GAME_DURATION);
+  const [currentDigits, setCurrentDigits] = useState<string[]>(Array(MAX_DIGITS).fill('0'));
+  const [targetDigits, setTargetDigits] = useState<string[]>(Array(MAX_DIGITS).fill('0'));
+  const [activeDigits, setActiveDigits] = useState<number>(INITIAL_DIGITS);
+  const [lastScoreInfo, setLastScoreInfo] = useState<ScoreInfo>({
+    baseScore: 0,
+    digitBonus: 0,
+    timeBonus: 0,
+    totalScore: 0,
+    currentDigits: 1
+  });
+
+  const generateTarget = useCallback((): string[] => {
+    return Array(MAX_DIGITS).fill(0).map((_, i: number) => 
       i < activeDigits ? Math.floor(Math.random() * 10).toString() : '0'
     );
   }, [activeDigits]);
 
-  const startGame = () => {
+  const startGame = (): void => {
     setGameState('playing');
     setScore(0);
     setTimeLeft(GAME_DURATION);
     setCurrentDigits(Array(MAX_DIGITS).fill('0'));
     setActiveDigits(INITIAL_DIGITS);
-    setCombo(0);
+    setLastScoreInfo({
+      baseScore: 0,
+      digitBonus: 0,
+      timeBonus: 0,
+      totalScore: 0,
+      currentDigits: 1
+    });
     setTargetDigits(generateTarget());
   };
 
-  const handleDigitClick = (index: number) => {  // index に型を指定
+  const handleDigitClick = (index: number): void => {
     if (gameState !== 'playing') return;
     
     const newDigits = [...currentDigits];
@@ -77,22 +100,41 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
 
     const allMatch = targetDigits
       .slice(0, activeDigits)
-      .every((digit, i) => digit === newDigits[i]);
+      .every((digit: string, i: number) => digit === newDigits[i]);
 
     if (allMatch) {
-      setScore(prev => {
-        const timeBonus = Math.floor(timeLeft / GAME_DURATION * 50);
-        const comboBonus = Math.floor(combo * 20);
-        const newScore = prev + SCORE_PER_MATCH + timeBonus + comboBonus;
+      // 通常のスコア計算
+      const baseScore = SCORE_PER_MATCH;
+      const digitBonus = Math.floor(baseScore * activeDigits * DIGIT_BONUS_MULTIPLIER);
+      const matchScore = baseScore + digitBonus;
+
+      // 次の桁へ進む
+      if (activeDigits < MAX_DIGITS) {
+        setScore(prev => prev + matchScore);
+        setLastScoreInfo({
+          baseScore,
+          digitBonus,
+          timeBonus: 0,
+          totalScore: matchScore,
+          currentDigits: activeDigits
+        });
+        setActiveDigits(prev => prev + 1);
+        setTargetDigits(generateTarget());
+      } else {
+        // 全ての桁をクリアした場合
+        const timeBonus = Math.floor(timeLeft * TIME_BONUS_MULTIPLIER); // 残り時間 × 10点
+        const finalScore = matchScore + timeBonus;
         
-        if (newScore > 1000 && activeDigits < MAX_DIGITS) {
-          setActiveDigits(prev => Math.min(prev + 1, MAX_DIGITS));
-        }
-        
-        return newScore;
-      });
-      setCombo(prev => prev + 1);
-      setTargetDigits(generateTarget());
+        setScore(prev => prev + finalScore);
+        setLastScoreInfo({
+          baseScore,
+          digitBonus,
+          timeBonus,
+          totalScore: finalScore,
+          currentDigits: activeDigits
+        });
+        setGameState('clear');
+      }
     }
   };
 
@@ -119,7 +161,7 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
         <div className="time-score">
           <div>Time: {timeLeft}s</div>
           <div>Score: {score}</div>
-          <div>Combo: {combo}x</div>
+          <div>Stage: {activeDigits} / {MAX_DIGITS}</div>
         </div>
         {gameState === 'ready' && (
           <button className="start-button" onClick={startGame}>Start Game</button>
@@ -127,6 +169,18 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
         {gameState === 'ended' && (
           <div className="game-over">
             <div className="final-score">Final Score: {score}</div>
+            <button className="start-button" onClick={startGame}>Play Again</button>
+            <button className="return-button" onClick={onReturnToClock}>Return to Clock</button>
+          </div>
+        )}
+        {gameState === 'clear' && (
+          <div className="game-clear">
+            <div className="clear-message">Congratulations!</div>
+            <div className="score-breakdown">
+              <div className="score-line">Game Score: {score - lastScoreInfo.timeBonus}</div>
+              <div className="score-line bonus">Time Bonus: +{lastScoreInfo.timeBonus}</div>
+              <div className="score-line total">Final Score: {score}</div>
+            </div>
             <button className="start-button" onClick={startGame}>Play Again</button>
             <button className="return-button" onClick={onReturnToClock}>Return to Clock</button>
           </div>
@@ -384,6 +438,53 @@ const NixieClockGame: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 10px;  // 追加：項目間の間隔
+        }
+
+        .game-clear {
+          text-align: center;
+          margin: 20px 0;
+        }
+
+        .clear-message {
+          font-size: 48px;
+          color: #ffdd00;
+          text-shadow: 0 0 10px rgba(255, 221, 0, 0.8);
+          margin-bottom: 20px;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); }
+        }
+
+        .score-breakdown {
+          margin: 20px 0;
+          font-size: 24px;
+          color: #fff;
+        }
+
+        .score-line {
+          margin: 10px 0;
+        }
+
+        .score-line.bonus {
+          color: #ffdd00;
+          animation: fadeIn 0.5s ease-in;
+        }
+
+        .score-line.total {
+          font-size: 32px;
+          font-weight: bold;
+          margin-top: 20px;
+          color: #ff6400;
+          animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
