@@ -79,8 +79,11 @@ export default function NixieClock() {
 
         .digit.active {
           color: #ff6400;
-          text-shadow: 0 0 10px rgba(255, 100, 0, 0.8), 0 0 20px rgba(255, 100, 0, 0.5);
+          text-shadow: 0 0 10px rgba(255, 100, 0, 0.8), 
+                       0 0 20px rgba(255, 100, 0, 0.5),
+                       0 0 30px rgba(255, 100, 0, 0.3);
           z-index: 1;
+          animation: flicker 0.1s infinite, fluctuate 4s infinite ease-in-out;
         }
 
         .nixie-digit::before {
@@ -115,6 +118,7 @@ export default function NixieClock() {
           );
           pointer-events: none;
           z-index: 3;
+          animation: glow 2s infinite ease-in-out;
         }
 
         @keyframes flicker {
@@ -123,8 +127,18 @@ export default function NixieClock() {
           100% { opacity: 1; }
         }
 
-        .digit.active {
-          animation: flicker 0.1s infinite;
+        @keyframes fluctuate {
+          0% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
+          25% { transform: translate(-50.1%, -50.1%) scale(1.01); filter: brightness(1.02); }
+          50% { transform: translate(-49.9%, -49.9%) scale(0.99); filter: brightness(0.98); }
+          75% { transform: translate(-50.2%, -50%) scale(1.02); filter: brightness(1.01); }
+          100% { transform: translate(-50%, -50%) scale(1); filter: brightness(1); }
+        }
+
+        @keyframes glow {
+          0% { opacity: 1; }
+          50% { opacity: 0.95; }
+          100% { opacity: 1; }
         }
       `}</style>
     </div>
