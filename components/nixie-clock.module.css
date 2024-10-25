@@ -1,0 +1,44 @@
+.nixie-clock-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.nixie-clock {
+  display: flex;
+  gap: 10px;
+  background: #1a1a1a;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+.nixie-digit {
+  position: relative;
+  width: 40px;
+  height: 60px;
+}
+
+.digit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+  font-size: 2rem;
+  visibility: hidden; /* 非アクティブな数字を非表示に */
+  color: #666;
+}
+
+.active {
+  visibility: visible; /* アクティブな数字のみ表示 */
+  color: #ff8f1f;
+  text-shadow: 
+    0 0 5px #ff8f1f,
+    0 0 10px #ff8f1f,
+    0 0 20px #ff8f1f;
+}
