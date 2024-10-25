@@ -163,8 +163,8 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
 
 // Main Component
 const NixieClockGame: React.FC = () => {
-  const [mode, setMode] = useState('clock');
-  const [time, setTime] = useState('00000000');
+  const [mode, setMode] = useState<'clock' | 'game'>('clock');
+  const [time, setTime] = useState<string>('00000000');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -191,8 +191,8 @@ const NixieClockGame: React.FC = () => {
                   value={digit} 
                   targetValue={digit}
                   isTarget={false}
-                  disabled={false}  // disabled を false に変更
-                  onClick={() => {}}  // 空の onClick を追加
+                  disabled={false}
+                  onClick={() => {}}
                 />
               ))}
             </div>
@@ -202,7 +202,7 @@ const NixieClockGame: React.FC = () => {
           </button>
         </>
       ) : (
-        <GameMode onReturnToClock={() => setMode('clock')} currentTime={time} />
+        <GameMode onReturnToClock={() => setMode('clock')} />
       )}
       
       <style jsx global>{`
