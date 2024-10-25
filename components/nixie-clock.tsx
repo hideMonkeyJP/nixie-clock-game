@@ -68,7 +68,7 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
     setTargetDigits(generateTarget());
   };
 
-  const handleDigitClick = (index) => {
+  const handleDigitClick = (index: number) => {  // index に型を指定
     if (gameState !== 'playing') return;
     
     const newDigits = [...currentDigits];
@@ -80,15 +80,18 @@ const GameMode: React.FC<GameModeProps> = ({ onReturnToClock }) => {
       .every((digit, i) => digit === newDigits[i]);
 
     if (allMatch) {
-      const timeBonus = Math.floor(timeLeft / GAME_DURATION * 50);
-      const comboBonus = Math.floor(combo * 20);
-      setScore(prev => prev + SCORE_PER_MATCH + timeBonus + comboBonus);
+      setScore(prev => {
+        const timeBonus = Math.floor(timeLeft / GAME_DURATION * 50);
+        const comboBonus = Math.floor(combo * 20);
+        const newScore = prev + SCORE_PER_MATCH + timeBonus + comboBonus;
+        
+        if (newScore > 1000 && activeDigits < MAX_DIGITS) {
+          setActiveDigits(prev => Math.min(prev + 1, MAX_DIGITS));
+        }
+        
+        return newScore;
+      });
       setCombo(prev => prev + 1);
-
-      if (score > 1000 && activeDigits < MAX_DIGITS) {
-        setActiveDigits(prev => Math.min(prev + 1, MAX_DIGITS));
-      }
-
       setTargetDigits(generateTarget());
     }
   };
